@@ -1,4 +1,4 @@
-import { Action, Plugin } from '@elizaos/core';
+import { Action, Provider, Plugin } from '@elizaos/core';
 
 declare const listKeysAction: Action;
 
@@ -66,6 +66,8 @@ declare const anchorProofAction: Action;
 
 declare const getSessionProofBatchAction: Action;
 
+declare const workflowGuideProvider: Provider;
+
 declare const openLessonPlugin: Plugin;
 
-export { adaptPlanAction, analyzeHeartbeatAction, anchorProofAction, askAssistantAction, createKeyAction, createPlanAction, createPlanFromVideoAction, openLessonPlugin as default, deletePlanAction, endSessionAction, getConversationHistoryAction, getPlanAction, getPlanAnalyticsAction, getPlanNodesAction, getProofAction, getSessionAction, getSessionAnalyticsAction, getSessionPlanAction, getSessionProbesAction, getSessionProofBatchAction, getSessionTranscriptAction, getUserAnalyticsAction, listKeysAction, listPlansAction, listProofsAction, listSessionsAction, openLessonPlugin, pauseSessionAction, restartSessionAction, resumeSessionAction, revokeKeyAction, startSessionAction, updateKeyScopesAction, updatePlanAction, verifyProofAction };
+export { adaptPlanAction, analyzeHeartbeatAction, anchorProofAction, askAssistantAction, createKeyAction, createPlanAction, createPlanFromVideoAction, openLessonPlugin as default, deletePlanAction, endSessionAction, getConversationHistoryAction, getPlanAction, getPlanAnalyticsAction, getPlanNodesAction, getProofAction, getSessionAction, getSessionAnalyticsAction, getSessionPlanAction, getSessionProbesAction, getSessionProofBatchAction, getSessionTranscriptAction, getUserAnalyticsAction, listKeysAction, listPlansAction, listProofsAction, listSessionsAction, openLessonPlugin, pauseSessionAction, restartSessionAction, resumeSessionAction, revokeKeyAction, startSessionAction, updateKeyScopesAction, updatePlanAction, verifyProofAction, workflowGuideProvider };

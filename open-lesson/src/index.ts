@@ -45,6 +45,9 @@ import { verifyProofAction } from './actions/verifyProof';
 import { anchorProofAction } from './actions/anchorProof';
 import { getSessionProofBatchAction } from './actions/getSessionProofBatch';
 
+// ── Providers ───────────────────────────────────────────────────────────────
+import { workflowGuideProvider } from './providers/workflowGuide';
+
 export const openLessonPlugin: Plugin = {
   name: 'open-lesson',
   description:
@@ -90,7 +93,7 @@ export const openLessonPlugin: Plugin = {
     anchorProofAction,
     getSessionProofBatchAction,
   ],
-  providers: [],
+  providers: [workflowGuideProvider],
   services: [],
   evaluators: [],
 };
@@ -141,3 +144,6 @@ export { getProofAction } from './actions/getProof';
 export { verifyProofAction } from './actions/verifyProof';
 export { anchorProofAction } from './actions/anchorProof';
 export { getSessionProofBatchAction } from './actions/getSessionProofBatch';
+
+// ── Providers exports ───────────────────────────────────────────────────────
+export { workflowGuideProvider } from './providers/workflowGuide';
