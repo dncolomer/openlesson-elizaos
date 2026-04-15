@@ -17,10 +17,22 @@ export async function apiRequest<T>(
   runtime: IAgentRuntime,
   method: string,
   path: string,
-  body?: unknown
+  body?: unknown,
+  query?: Record<string, string | number | boolean | undefined>
 ): Promise<T> {
   const apiKey = getApiKey(runtime);
-  const url = `${BASE_URL}/api/${API_VERSION}/agent${path}`;
+  let url = `${BASE_URL}/api/${API_VERSION}/agent${path}`;
+
+  if (query) {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== null) {
+        params.set(key, String(value));
+      }
+    }
+    const qs = params.toString();
+    if (qs) url += `?${qs}`;
+  }
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${apiKey}`,

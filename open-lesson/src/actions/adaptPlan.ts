@@ -26,9 +26,9 @@ export const adaptPlanAction: Action = {
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    state: State,
-    _options: unknown,
-    callback: HandlerCallback
+    state: State | undefined,
+    _options: Record<string, unknown> | undefined,
+    callback?: HandlerCallback
   ) => {
     const text = (message.content as { text?: string }).text ?? "";
 
@@ -36,14 +36,14 @@ export const adaptPlanAction: Action = {
     const idMatch = text.match(/plan[_\s]?(?:id)?[:\s]*([a-zA-Z0-9_-]+)/i);
     const planId =
       idMatch?.[1] ??
-      (state as Record<string, unknown>)?.plan_id as string | undefined;
+      ((state as Record<string, unknown>)?.plan_id as string | undefined);
 
     if (!planId) {
-      callback({
+      callback?.({
         text: "Please provide a plan ID to adapt. Example: 'Adapt plan plan_abc123: skip the intro sessions'.",
         action: "ADAPT_LEARNING_PLAN",
       });
-      return true;
+      return;
     }
 
     // The instruction is the rest of the message (or the whole text if no plan ID pattern)
@@ -52,53 +52,66 @@ export const adaptPlanAction: Action = {
       .replace(/^[\s:,]+/, "")
       .trim() || text.trim();
 
+    // Extract optional parameters
+    const preserveMatch = text.match(
+      /preserve[_\s]?completed[:\s]*(true|false)/i
+    );
+    const contextMatch = text.match(
+      /(?:context|additional)[:\s]*["']?([^"']+)["']?$/i
+    );
+
     try {
+      const body: Record<string, unknown> = { instruction };
+      if (preserveMatch)
+        body.preserve_completed = preserveMatch[1].toLowerCase() === "true";
+      if (contextMatch) body.context = contextMatch[1].trim();
+
       const data = await apiRequest<AdaptPlanResponse>(
         runtime,
         "POST",
         `/plans/${planId}/adapt`,
-        { instruction }
+        body
       );
 
-      callback({
-        text: `Plan ${data.plan_id} adapted: "${data.instruction}". Now has ${data.nodes.length} sessions.`,
+      callback?.({
+        text: `Plan ${data.plan_id} adapted. ${data.explanation} Changes: ${data.changes.created} created, ${data.changes.updated} updated, ${data.changes.deleted} deleted, ${data.changes.kept} kept. Now has ${data.nodes.length} sessions.`,
         action: "ADAPT_LEARNING_PLAN",
       });
     } catch (error) {
-      callback({
+      callback?.({
         text: `Failed to adapt plan: ${error instanceof Error ? error.message : "Unknown error"}`,
         action: "ADAPT_LEARNING_PLAN",
       });
     }
 
-    return true;
+    return;
   },
 
   examples: [
     [
       {
-        user: "{{user1}}",
+        name: "{{user1}}",
         content: {
           text: "Adapt plan plan_abc123: skip the intro sessions",
         },
       },
       {
-        user: "{{agentName}}",
+        name: "{{agentName}}",
         content: {
-          text: 'Plan plan_abc123 adapted: "skip the intro sessions". Now has 6 sessions.',
+          text: 'Plan plan_abc123 adapted. Removed introductory sessions as requested. Changes: 0 created, 2 updated, 2 deleted, 4 kept. Now has 6 sessions.',
           action: "ADAPT_LEARNING_PLAN",
         },
       },
     ],
     [
       {
-        user: "{{user1}}",
+        name: "{{user1}}",
         content: { text: "Add more practice problems to plan plan_def456" },
       },
       {
-        user: "{{agentName}}",
+        name: "{{agentName}}",
         content: {
-          text: 'Plan plan_def456 adapted: "Add more practice problems". Now has 9 sessions.',
+          text: 'Plan plan_def456 adapted. Added practice sessions for each topic. Changes: 3 created, 0 updated, 0 deleted, 6 kept. Now has 9 sessions.',
           action: "ADAPT_LEARNING_PLAN",
         },
       },

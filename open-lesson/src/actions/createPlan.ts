@@ -26,9 +26,9 @@ export const createPlanAction: Action = {
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    _state: State,
-    _options: unknown,
-    callback: HandlerCallback
+    _state: State | undefined,
+    _options: Record<string, unknown> | undefined,
+    callback?: HandlerCallback
   ) => {
     const text = (message.content as { text?: string }).text ?? "";
 
@@ -36,7 +36,9 @@ export const createPlanAction: Action = {
     const topicMatch = text.match(
       /(?:learning plan (?:for|about|on)|learn|study|plan for)\s+(.+?)(?:\s+in\s+(\d+)\s*(days?|weeks?))?$/i
     );
-    const topic = topicMatch ? topicMatch[1].replace(/\s+in\s+\d+\s*(days?|weeks?)$/i, "").trim() : text.trim();
+    const topic = topicMatch
+      ? topicMatch[1].replace(/\s+in\s+\d+\s*(days?|weeks?)$/i, "").trim()
+      : text.trim();
     let duration_days: number | undefined;
 
     const durationMatch = text.match(/(\d+)\s*(days?|weeks?)/i);
@@ -47,16 +49,26 @@ export const createPlanAction: Action = {
     }
 
     if (!topic) {
-      callback({
+      callback?.({
         text: "Please specify a topic for the learning plan.",
         action: "CREATE_LEARNING_PLAN",
       });
-      return true;
+      return;
     }
+
+    // Extract optional parameters
+    const difficultyMatch = text.match(
+      /(?:difficulty|level)[:\s]*(beginner|intermediate|advanced)/i
+    );
+    const contextMatch = text.match(
+      /(?:context|background)[:\s]*["']?([^"']+)["']?/i
+    );
 
     try {
       const body: Record<string, unknown> = { topic };
       if (duration_days) body.duration_days = duration_days;
+      if (difficultyMatch) body.difficulty = difficultyMatch[1].toLowerCase();
+      if (contextMatch) body.user_context = contextMatch[1].trim();
 
       const data = await apiRequest<CreatePlanResponse>(
         runtime,
@@ -67,28 +79,28 @@ export const createPlanAction: Action = {
 
       const startNode = data.nodes.find((n) => n.is_start);
 
-      callback({
-        text: `Learning plan created for "${data.topic}" spanning ${data.duration_days} days with ${data.nodes.length} sessions. Plan ID: ${data.plan_id}. First session: "${startNode?.title ?? "N/A"}".`,
+      callback?.({
+        text: `Learning plan created for "${data.plan.topic}" spanning ${data.plan.duration_days} days with ${data.node_count} sessions. Plan ID: ${data.plan.id}. First session: "${startNode?.title ?? "N/A"}".`,
         action: "CREATE_LEARNING_PLAN",
       });
     } catch (error) {
-      callback({
+      callback?.({
         text: `Failed to create learning plan: ${error instanceof Error ? error.message : "Unknown error"}`,
         action: "CREATE_LEARNING_PLAN",
       });
     }
 
-    return true;
+    return;
   },
 
   examples: [
     [
       {
-        user: "{{user1}}",
+        name: "{{user1}}",
         content: { text: "Create a learning plan for quantum computing" },
       },
       {
-        user: "{{agentName}}",
+        name: "{{agentName}}",
         content: {
           text: 'Learning plan created for "quantum computing" spanning 30 days with 8 sessions. Plan ID: plan_abc123. First session: "Introduction to Qubits".',
           action: "CREATE_LEARNING_PLAN",
@@ -97,11 +109,11 @@ export const createPlanAction: Action = {
     ],
     [
       {
-        user: "{{user1}}",
+        name: "{{user1}}",
         content: { text: "I want to learn Python in 2 weeks" },
       },
       {
-        user: "{{agentName}}",
+        name: "{{agentName}}",
         content: {
           text: 'Learning plan created for "Python" spanning 14 days with 6 sessions. Plan ID: plan_def456. First session: "Python Basics".',
           action: "CREATE_LEARNING_PLAN",

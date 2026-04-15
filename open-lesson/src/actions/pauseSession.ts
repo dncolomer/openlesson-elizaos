@@ -20,9 +20,9 @@ export const pauseSessionAction: Action = {
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    state: State,
-    _options: unknown,
-    callback: HandlerCallback
+    state: State | undefined,
+    _options: Record<string, unknown> | undefined,
+    callback?: HandlerCallback
   ) => {
     const text = (message.content as { text?: string }).text ?? "";
 
@@ -31,47 +31,60 @@ export const pauseSessionAction: Action = {
     );
     const sessionId =
       sessionMatch?.[1] ??
-      (state as Record<string, unknown>)?.session_id as string | undefined;
+      ((state as Record<string, unknown>)?.session_id as string | undefined);
 
     if (!sessionId) {
-      callback({
+      callback?.({
         text: "Please provide a session ID to pause.",
         action: "PAUSE_SESSION",
       });
-      return true;
+      return;
     }
 
+    // Extract optional parameters
+    const reasonMatch = text.match(
+      /(?:reason|because)[:\s]*["']?([^"']+)["']?/i
+    );
+    const resumeMatch = text.match(/(\d+)\s*min(?:ute)?s?/i);
+
     try {
+      const body: Record<string, unknown> = {};
+      if (reasonMatch) body.reason = reasonMatch[1].trim();
+      if (resumeMatch)
+        body.estimated_resume_minutes = parseInt(resumeMatch[1], 10);
+
       const data = await apiRequest<PauseSessionResponse>(
         runtime,
         "POST",
-        `/sessions/${sessionId}/pause`
+        `/sessions/${sessionId}/pause`,
+        Object.keys(body).length > 0 ? body : undefined
       );
 
-      callback({
-        text: `Session ${data.session_id} paused. ${data.message}`,
+      const elapsed = Math.round(data.elapsed_ms / 1000 / 60);
+      callback?.({
+        text: `Session ${data.session.id} paused after ${elapsed} minutes. You can resume any time.`,
         action: "PAUSE_SESSION",
       });
     } catch (error) {
-      callback({
+      callback?.({
         text: `Failed to pause session: ${error instanceof Error ? error.message : "Unknown error"}`,
         action: "PAUSE_SESSION",
       });
     }
 
-    return true;
+    return;
   },
 
   examples: [
     [
       {
-        user: "{{user1}}",
+        name: "{{user1}}",
         content: { text: "Pause session sess_abc123" },
       },
       {
-        user: "{{agentName}}",
+        name: "{{agentName}}",
         content: {
-          text: "Session sess_abc123 paused. You can resume any time.",
+          text: "Session sess_abc123 paused after 12 minutes. You can resume any time.",
           action: "PAUSE_SESSION",
         },
       },

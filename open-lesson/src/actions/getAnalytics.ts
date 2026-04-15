@@ -6,10 +6,10 @@ import type {
   HandlerCallback,
 } from "@elizaos/core";
 import { apiRequest } from "../client";
-import type { AnalyticsResponse } from "../types";
+import type { UserAnalyticsResponse } from "../types";
 
-export const getAnalyticsAction: Action = {
-  name: "GET_ANALYTICS",
+export const getUserAnalyticsAction: Action = {
+  name: "GET_USER_ANALYTICS",
   similes: [
     "SHOW_ANALYTICS",
     "VIEW_ANALYTICS",
@@ -18,7 +18,7 @@ export const getAnalyticsAction: Action = {
     "SHOW_PROGRESS",
   ],
   description:
-    "Retrieve user analytics — total sessions, plans, average gap score, and per-session stats",
+    "Retrieve user-wide analytics — overview, performance trends, learning history, and achievements",
 
   validate: async (runtime: IAgentRuntime, _message: Memory) => {
     return !!runtime.getSetting("OPENLESSON_API_KEY");
@@ -27,64 +27,51 @@ export const getAnalyticsAction: Action = {
   handler: async (
     runtime: IAgentRuntime,
     _message: Memory,
-    _state: State,
-    _options: unknown,
-    callback: HandlerCallback
+    _state: State | undefined,
+    _options: Record<string, unknown> | undefined,
+    callback?: HandlerCallback
   ) => {
     try {
-      const data = await apiRequest<AnalyticsResponse>(
+      const data = await apiRequest<UserAnalyticsResponse>(
         runtime,
         "GET",
         "/analytics/user"
       );
 
-      let text = `Analytics: ${data.total_sessions} sessions, ${data.total_plans} plans, average gap score ${data.average_gap_score.toFixed(2)}.`;
+      let text = `Analytics Overview: ${data.overview.total_sessions} sessions, ${data.overview.total_plans} plans.`;
+      text += `\nCompletion rates — plans: ${(data.overview.plan_completion_rate * 100).toFixed(0)}%, sessions: ${(data.overview.session_completion_rate * 100).toFixed(0)}%.`;
+      text += `\nPerformance: gap score ${data.performance.overall_gap_score.toFixed(2)} (${data.performance.trend}).`;
 
-      if (data.sessions.length > 0) {
-        text += "\n\nRecent sessions:";
-        data.sessions.slice(0, 5).forEach((s) => {
-          text += `\n- ${s.topic} (${s.status}) — gap: ${s.average_gap_score.toFixed(2)}, heartbeats: ${s.heartbeat_count}`;
-        });
-        if (data.sessions.length > 5) {
-          text += `\n... and ${data.sessions.length - 5} more.`;
-        }
+      if (data.achievements.streaks.current_days > 0) {
+        text += `\nStreak: ${data.achievements.streaks.current_days} days (best: ${data.achievements.streaks.longest_days}).`;
       }
 
-      callback({ text, action: "GET_ANALYTICS" });
+      if (data.learning_history.recent_topics.length > 0) {
+        text += `\nRecent topics: ${data.learning_history.recent_topics.slice(0, 5).join(", ")}.`;
+      }
+
+      callback?.({ text, action: "GET_USER_ANALYTICS" });
     } catch (error) {
-      callback({
+      callback?.({
         text: `Failed to get analytics: ${error instanceof Error ? error.message : "Unknown error"}`,
-        action: "GET_ANALYTICS",
+        action: "GET_USER_ANALYTICS",
       });
     }
 
-    return true;
+    return;
   },
 
   examples: [
     [
       {
-        user: "{{user1}}",
+        name: "{{user1}}",
         content: { text: "Show me my learning analytics" },
       },
       {
-        user: "{{agentName}}",
+        name: "{{agentName}}",
         content: {
-          text: "Analytics: 12 sessions, 3 plans, average gap score 0.42.\n\nRecent sessions:\n- Gradient Descent (completed) — gap: 0.35, heartbeats: 8\n- Linear Algebra (active) — gap: 0.50, heartbeats: 3",
-          action: "GET_ANALYTICS",
-        },
-      },
-    ],
-    [
-      {
-        user: "{{user1}}",
-        content: { text: "How am I doing with my studies?" },
-      },
-      {
-        user: "{{agentName}}",
-        content: {
-          text: "Analytics: 5 sessions, 1 plan, average gap score 0.28.",
-          action: "GET_ANALYTICS",
+          text: "Analytics Overview: 12 sessions, 3 plans.\nCompletion rates — plans: 67%, sessions: 83%.\nPerformance: gap score 0.42 (improving).\nStreak: 5 days (best: 12).\nRecent topics: Gradient Descent, Linear Algebra, Neural Networks.",
+          action: "GET_USER_ANALYTICS",
         },
       },
     ],
